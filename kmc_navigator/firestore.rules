@@ -1,0 +1,55 @@
+rules_version = '2';
+
+// KMC Navigator — V1 Firestore Security Rules
+//
+// Model: every visitor can READ hospital data and announcements without
+// signing in (there are no visitor accounts). WRITES are restricted to
+// documents in `admins/{uid}` matching the caller's Firebase Auth uid —
+// i.e. only a signed-in, provisioned admin can create/update/delete
+// buildings, locations, connections, or announcements.
+//
+// `admins/{uid}` documents themselves are never writable from the
+// client at all — admin provisioning is a server-side/Firebase Console
+// operation, so a compromised or rogue client can never grant itself
+// admin rights.
+//
+// This file is a reference for when the Firebase project is set up; it
+// is not deployed automatically by the Flutter app.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedInAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Hospital data — open reads, admin-only writes.
+    match /buildings/{buildingId} {
+      allow read: if true;
+      allow write: if isSignedInAdmin();
+    }
+
+    match /locations/{locationId} {
+      allow read: if true;
+      allow write: if isSignedInAdmin();
+    }
+
+    match /connections/{connectionId} {
+      allow read: if true;
+      allow write: if isSignedInAdmin();
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if isSignedInAdmin();
+    }
+
+    // Admin directory — never client-writable. Provision admins via the
+    // Firebase Console or a trusted backend/Cloud Function only.
+    match /admins/{adminId} {
+      allow read: if isSignedInAdmin();
+      allow write: if false;
+    }
+  }
+}
